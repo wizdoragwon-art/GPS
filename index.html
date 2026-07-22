@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>주소 좌표 변환기</title>
+<meta name="theme-color" content="#2E6B47" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="좌표변환" />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --paper:#F7F7F4; --panel:#FFFFFF;
+    --ink:#171A16; --ink-soft:#5A6157; --ink-faint:#9AA093;
+    --line:#E5E6DF; --line-soft:#EEEFE9;
+    --leaf:#2E6B47; --leaf-bright:#3E9E63; --leaf-wash:#EAF3EC;
+    --clay:#B4463C; --clay-wash:#FBECEA;
+    --amber:#B8862C;
+    --mono:ui-monospace,SFMono-Regular,Menlo,"Roboto Mono",monospace;
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:"Pretendard Variable",Pretendard,system-ui,sans-serif;
+    background:var(--paper); color:var(--ink);
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px 64px}
+
+  /* ── header : 좌표 그리드 시그니처 ── */
+  header{
+    position:relative;overflow:hidden;
+    background:var(--leaf);color:#fff;
+    border-radius:0 0 24px 24px;
+    padding:calc(28px + env(safe-area-inset-top)) 22px 30px;
+    margin:0 -18px 26px;
+  }
+  header .grid{
+    position:absolute;inset:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.10) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.10) 1px,transparent 1px);
+    background-size:48px 48px; mask:linear-gradient(180deg,#000,transparent 92%);
+  }
+  header .tick{position:absolute;font:600 10px/1 var(--mono);color:rgba(255,255,255,.55);letter-spacing:.04em}
+  header .tick.a{top:14px;right:16px}
+  header .tick.b{bottom:12px;left:20px}
+  .eyebrow{font:600 11px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.7);margin:0 0 10px}
+  header h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:0}
+  header p{margin:8px 0 0;color:rgba(255,255,255,.82);font-size:14px;max-width:44ch}
+
+  /* ── panels ── */
+  .panel{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r);padding:18px;margin:0 0 16px;
+  }
+  .panel-head{display:flex;align-items:center;gap:10px;margin:0 0 4px}
+  .step{
+    flex:none;width:22px;height:22px;border-radius:7px;
+    display:grid;place-items:center;background:var(--leaf-wash);color:var(--leaf);
+    font:700 12px/1 var(--mono);
+  }
+  .panel h2{font-size:15px;font-weight:700;margin:0;letter-spacing:-.01em}
+  .panel .sub{color:var(--ink-soft);font-size:13px;margin:2px 0 14px 32px}
+  .panel[data-done="1"] .step{background:var(--leaf);color:#fff}
+
+  label.fld{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin:0 0 6px}
+  input[type=text],input[type=password],select{
+    width:100%;font-family:inherit;font-size:14px;color:var(--ink);
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+    padding:11px 12px;outline:none;transition:border-color .15s,box-shadow .15s;
+  }
+  input:focus,select:focus{border-color:var(--leaf);box-shadow:0 0 0 3px var(--leaf-wash)}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row>*{flex:1 1 180px}
+
+  .hint{font-size:12px;color:var(--ink-faint);margin:8px 0 0}
+  .hint a{color:var(--leaf);text-decoration:none;border-bottom:1px solid var(--leaf-wash)}
+
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:10px;font-weight:700;transition:filter .15s,background .15s,opacity .15s}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .btn{background:var(--leaf);color:#fff;font-size:14px;padding:12px 16px}
+  .btn:not(:disabled):hover{filter:brightness(1.06)}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .btn.wide{width:100%}
+  .btn.sm{padding:9px 13px;font-size:13px}
+
+  /* ── dropzone ── */
+  .drop{
+    border:1.5px dashed var(--line);border-radius:12px;background:#fff;
+    padding:26px 18px;text-align:center;transition:border-color .15s,background .15s;
+  }
+  .drop.hot{border-color:var(--leaf);background:var(--leaf-wash)}
+  .drop .big{font-size:14px;font-weight:600;margin:0 0 4px}
+  .drop .small{font-size:12.5px;color:var(--ink-faint);margin:0}
+  .filechip{display:inline-flex;align-items:center;gap:8px;margin-top:12px;background:var(--leaf-wash);color:var(--leaf);
+    border-radius:999px;padding:6px 12px;font:600 12.5px/1 var(--mono)}
+
+  /* ── progress ── */
+  .prog-wrap{margin:6px 0 0}
+  .bar{height:8px;background:var(--line-soft);border-radius:99px;overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;background:var(--leaf);transition:width .2s}
+  .counts{display:flex;justify-content:space-between;margin-top:8px;font:600 12px/1 var(--mono);color:var(--ink-soft)}
+  .counts .ok{color:var(--leaf)} .counts .no{color:var(--clay)}
+
+  /* ── preview table ── */
+  .tbl-wrap{border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:340px;margin-top:6px}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{padding:8px 11px;text-align:left;border-bottom:1px solid var(--line-soft);white-space:nowrap}
+  th{position:sticky;top:0;background:#fff;font-weight:700;color:var(--ink-soft);font-size:11.5px;z-index:1}
+  td.coord{font-family:var(--mono);color:var(--leaf);font-size:12px}
+  td.pending{color:var(--ink-faint)}
+  td.fail{color:var(--clay);font-family:var(--mono);font-size:12px}
+  tr:last-child td{border-bottom:none}
+
+  .note{font-size:12.5px;color:var(--ink-soft);background:var(--leaf-wash);border-radius:10px;padding:11px 13px;margin:14px 0 0}
+  .warn{background:var(--clay-wash);color:var(--clay)}
+  .hidden{display:none!important}
+  .foot{text-align:center;color:var(--ink-faint);font-size:11.5px;margin-top:26px}
+  .foot code{font-family:var(--mono);background:#fff;border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+
+  /* ── 사용 가이드 ── */
+  .guide-btn{
+    position:absolute;top:calc(16px + env(safe-area-inset-top));right:16px;
+    display:inline-flex;align-items:center;gap:5px;
+    background:rgba(255,255,255,.14);color:#fff;
+    border:1px solid rgba(255,255,255,.28);border-radius:999px;
+    padding:6px 12px;font:600 12px/1 inherit;backdrop-filter:blur(4px);
+  }
+  .guide-btn:hover{background:rgba(255,255,255,.22)}
+  .guide{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r);margin:0 0 16px;overflow:hidden;
+  }
+  .guide summary{
+    list-style:none;cursor:pointer;display:flex;align-items:center;gap:9px;
+    padding:15px 18px;font-size:14px;font-weight:700;user-select:none;
+  }
+  .guide summary::-webkit-details-marker{display:none}
+  .guide summary .mk{
+    flex:none;width:22px;height:22px;border-radius:7px;background:var(--leaf-wash);color:var(--leaf);
+    display:grid;place-items:center;font:700 13px/1 var(--mono);
+  }
+  .guide summary .chev{margin-left:auto;color:var(--ink-faint);transition:transform .2s;font-size:12px}
+  .guide[open] summary .chev{transform:rotate(180deg)}
+  .guide-body{padding:0 18px 18px}
+  .guide-body h3{
+    font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;
+    color:var(--leaf);margin:16px 0 9px;padding-top:14px;border-top:1px solid var(--line-soft);
+  }
+  .guide-body h3:first-child{border-top:none;padding-top:0;margin-top:4px}
+  .glist{list-style:none;margin:0;padding:0;counter-reset:g}
+  .glist li{position:relative;padding:0 0 11px 30px;font-size:13.5px;color:var(--ink-soft);line-height:1.55}
+  .glist li:last-child{padding-bottom:0}
+  .glist li::before{
+    counter-increment:g;content:counter(g);
+    position:absolute;left:0;top:0;width:20px;height:20px;border-radius:6px;
+    background:var(--leaf);color:#fff;font:700 11px/20px var(--mono);text-align:center;
+  }
+  .glist b{color:var(--ink);font-weight:700}
+  .glist code,.guide-body code{font-family:var(--mono);font-size:12px;background:var(--paper);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+  .glist a{color:var(--leaf);text-decoration:none;border-bottom:1px solid var(--leaf-wash)}
+  .gtips{margin:2px 0 0;padding:0;list-style:none}
+  .gtips li{position:relative;padding:0 0 8px 18px;font-size:13px;color:var(--ink-soft);line-height:1.5}
+  .gtips li:last-child{padding-bottom:0}
+  .gtips li::before{content:"–";position:absolute;left:2px;top:0;color:var(--leaf);font-weight:700}
+  .gcallout{background:var(--clay-wash);color:var(--clay);border-radius:9px;padding:10px 12px;font-size:12.5px;margin:12px 0 0;line-height:1.5}
+  .gcallout b{color:var(--clay)}
+</style>
+</head>
+<body>
+<header>
+  <div class="grid"></div>
+  <button class="guide-btn" id="guideBtn" type="button">＊ 사용 가이드</button>
+  <span class="tick b">EPSG:4326 · WGS84</span>
+  <p class="eyebrow">Address → Coordinates</p>
+  <h1>주소 좌표 변환기</h1>
+  <p>엑셀의 주소 열을 읽어 오른쪽에 <b>위도·경도</b>를 채워 내려받습니다. 카카오 지도 좌표를 사용합니다.</p>
+</header>
+
+<div class="wrap">
+
+  <!-- 사용 가이드 -->
+  <details class="guide" id="guide">
+    <summary><span class="mk">?</span>사용 가이드<span class="chev">▾</span></summary>
+    <div class="guide-body">
+
+      <h3>처음 한 번만 · 카카오 키 준비</h3>
+      <ol class="glist">
+        <li><a href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com</a>에 로그인하고 <b>내 애플리케이션 › 애플리케이션 추가</b>로 앱을 만듭니다.</li>
+        <li>앱 › <b>요약 정보</b>에서 <b>JavaScript 키</b>를 복사합니다. <b>REST API 키가 아닙니다.</b></li>
+        <li>앱 › <b>플랫폼 › Web › 사이트 도메인 등록</b>에 이 앱의 주소를 <b>경로 없이 오리진만</b> 넣습니다. 예: <code>https://아이디.github.io</code></li>
+      </ol>
+      <div class="gcallout"><b>도메인을 등록하지 않으면</b> 좌표 조회가 실패합니다. 파일을 그냥 더블클릭(<code>file://</code>)해서 열어도 동작하지 않으니, 배포된 주소로 접속해 사용하세요.</div>
+
+      <h3>변환하기</h3>
+      <ol class="glist">
+        <li><b>1단계</b>에 JavaScript 키를 붙여넣고 <b>저장하고 연결</b>을 누릅니다. 키는 이 기기에 저장돼 다음부터 자동 연결됩니다.</li>
+        <li><b>2단계</b>에 엑셀 파일을 끌어다 놓거나 눌러서 선택합니다. 첫 시트의 1행을 머리글로 읽습니다.</li>
+        <li><b>3단계</b>에서 주소가 든 열을 확인하고(‘주소’ 열은 자동 선택) <b>변환 시작</b>을 누릅니다.</li>
+        <li>진행이 끝나면 <b>결과 엑셀 내려받기</b>로 저장합니다. 주소 열 오른쪽에 <b>위도·경도</b>가 추가됩니다.</li>
+      </ol>
+
+      <h3>알아두면 좋은 점</h3>
+      <ul class="gtips">
+        <li>모든 처리는 브라우저 안에서만 이뤄집니다. 파일이 서버로 올라가지 않습니다.</li>
+        <li>도로명·지번 검색이 실패하면 장소명(키워드) 검색으로 한 번 더 시도합니다.</li>
+        <li>실패한 행은 <b>실패 항목 다시 변환</b>으로 재시도할 수 있습니다. 주소를 도로명 형식으로 다듬으면 성공률이 올라갑니다.</li>
+        <li>좌표계는 <code>WGS84</code>(위경도)입니다.</li>
+        <li>모바일 브라우저의 <b>홈 화면에 추가</b>를 누르면 앱처럼 설치돼 실행됩니다.</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- STEP 1 : API 키 -->
+  <section class="panel" id="p1">
+    <div class="panel-head"><span class="step">1</span><h2>카카오 JavaScript 키 등록</h2></div>
+    <p class="sub">지도 좌표를 조회하려면 카카오 개발자 앱의 <b>JavaScript 키</b>가 필요합니다.</p>
+    <label class="fld" for="apikey">JavaScript 키</label>
+    <div class="row">
+      <input type="password" id="apikey" placeholder="여기에 JavaScript 키를 붙여넣기" autocomplete="off" style="flex:3 1 220px" />
+      <button class="btn sm" id="saveKey" style="flex:0 0 auto">저장하고 연결</button>
+    </div>
+    <p class="hint">
+      <a href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com</a>
+      에서 앱 생성 → <b>JavaScript 키</b> 복사 → 앱 설정의 <b>플랫폼 &gt; Web</b>에 이 앱을 올린 <b>도메인 주소를 등록</b>해야 동작합니다.
+    </p>
+    <p id="keyState" class="note hidden"></p>
+  </section>
+
+  <!-- STEP 2 : 파일 -->
+  <section class="panel" id="p2">
+    <div class="panel-head"><span class="step">2</span><h2>엑셀 파일 올리기</h2></div>
+    <p class="sub">첫 시트의 1행을 머리글로 읽습니다. (.xlsx / .xls / .csv)</p>
+    <div class="drop" id="drop">
+      <p class="big">파일을 여기로 끌어다 놓기</p>
+      <p class="small">또는 눌러서 선택 · 브라우저 안에서만 처리되어 파일이 서버로 전송되지 않습니다</p>
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" class="hidden" />
+      <div id="fileChip"></div>
+    </div>
+  </section>
+
+  <!-- STEP 3 : 열 선택 + 변환 -->
+  <section class="panel hidden" id="p3">
+    <div class="panel-head"><span class="step">3</span><h2>주소 열 선택 후 변환</h2></div>
+    <p class="sub" id="rowInfo"></p>
+    <div class="row">
+      <div>
+        <label class="fld" for="addrCol">주소가 들어있는 열</label>
+        <select id="addrCol"></select>
+      </div>
+      <div style="flex:0 0 auto;display:flex;align-items:flex-end">
+        <button class="btn" id="run">변환 시작</button>
+      </div>
+    </div>
+
+    <div class="prog-wrap hidden" id="progWrap">
+      <div class="bar"><i id="barFill"></i></div>
+      <div class="counts">
+        <span id="cDone">0 / 0</span>
+        <span><span class="ok" id="cOk">성공 0</span> · <span class="no" id="cNo">실패 0</span></span>
+      </div>
+    </div>
+
+    <div class="tbl-wrap hidden" id="previewWrap">
+      <table id="preview"><thead></thead><tbody></tbody></table>
+    </div>
+
+    <div id="resultActions" class="row hidden" style="margin-top:14px">
+      <button class="btn wide" id="download">결과 엑셀 내려받기</button>
+      <button class="btn ghost sm hidden" id="retry" style="flex:0 0 auto">실패 항목 다시 변환</button>
+    </div>
+    <p id="doneNote" class="note hidden"></p>
+  </section>
+
+  <p class="foot">브라우저 로컬 처리 · 좌표계 <code>WGS84</code> · 데이터는 기기 밖으로 나가지 않습니다</p>
+</div>
+
+<script>
+/* ───────── 상태 ───────── */
+const S = {
+  ready:false,          // 카카오 SDK 로드 완료
+  geocoder:null, places:null,
+  rows:[],              // aoa (header + data)
+  addrIdx:0,
+  results:[],           // {lat,lng,ok} per data row
+  fileName:"data",
+};
+
+/* ───────── 유틸 ───────── */
+const $ = (id)=>document.getElementById(id);
+const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+
+/* ───────── STEP 1 : 카카오 SDK 로드 ───────── */
+function loadKakao(key){
+  return new Promise((resolve,reject)=>{
+    if(window.kakao && window.kakao.maps){ resolve(); return; }
+    const s = document.createElement("script");
+    s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&libraries=services&autoload=false`;
+    s.onload = ()=> window.kakao.maps.load(resolve);
+    s.onerror = ()=> reject(new Error("SDK 로드 실패"));
+    document.head.appendChild(s);
+  });
+}
+async function connectKey(key){
+  const state = $("keyState");
+  try{
+    await loadKakao(key);
+    S.geocoder = new kakao.maps.services.Geocoder();
+    S.places   = new kakao.maps.services.Places();
+    S.ready = true;
+    localStorage.setItem("kakao_js_key", key);
+    $("p1").dataset.done = "1";
+    state.textContent = "연결됨 · 이제 파일을 올려 변환할 수 있습니다.";
+    state.className = "note";
+  }catch(e){
+    S.ready = false;
+    state.textContent = "키를 불러오지 못했습니다. 키 값과 등록 도메인을 확인하세요.";
+    state.className = "note warn";
+  }
+}
+$("saveKey").onclick = ()=>{
+  const k = $("apikey").value.trim();
+  if(!k){ return; }
+  connectKey(k);
+};
+// 저장된 키 자동 연결
+(function(){
+  const saved = localStorage.getItem("kakao_js_key");
+  if(saved){ $("apikey").value = saved; connectKey(saved); }
+})();
+
+/* ───────── 사용 가이드 토글 ───────── */
+(function(){
+  const g = $("guide");
+  // 처음 방문(키 미설정)엔 펼쳐서 안내
+  if(!localStorage.getItem("kakao_js_key")) g.open = true;
+  $("guideBtn").onclick = ()=>{
+    g.open = !g.open;
+    if(g.open) g.scrollIntoView({behavior:"smooth", block:"start"});
+  };
+})();
+
+/* ───────── STEP 2 : 파일 읽기 ───────── */
+const drop = $("drop"), fileInput = $("file");
+drop.onclick = ()=> fileInput.click();
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("hot");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("hot");}));
+drop.addEventListener("drop", e=>{ if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.onchange = ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); };
+
+function handleFile(file){
+  S.fileName = file.name.replace(/\.[^.]+$/,"");
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const wb = XLSX.read(e.target.result, {type:"array"});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    S.rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""});
+    // 빈 꼬리 행 제거
+    while(S.rows.length && S.rows[S.rows.length-1].every(c=>String(c).trim()==="")) S.rows.pop();
+    if(S.rows.length < 2){ alert("데이터 행을 찾지 못했습니다."); return; }
+    // 행 길이를 머리글 기준으로 맞춤 (들쭉날쭉한 행 보정)
+    const W = S.rows[0].length;
+    S.rows = S.rows.map(r=>{ const c=r.slice(); while(c.length<W)c.push(""); return c; });
+    setupColumns();
+    $("fileChip").innerHTML = `<span class="filechip">▣ ${file.name}</span>`;
+    $("p2").dataset.done = "1";
+    $("p3").classList.remove("hidden");
+    $("p3").scrollIntoView({behavior:"smooth",block:"start"});
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function setupColumns(){
+  const header = S.rows[0];
+  const sel = $("addrCol");
+  sel.innerHTML = "";
+  header.forEach((h,i)=>{
+    const o = document.createElement("option");
+    o.value = i; o.textContent = (String(h).trim()||`(열 ${i+1})`);
+    sel.appendChild(o);
+  });
+  // '주소' 자동 선택
+  const guess = header.findIndex(h=>String(h).replace(/\s/g,"").includes("주소"));
+  S.addrIdx = guess>=0 ? guess : 0;
+  sel.value = S.addrIdx;
+  sel.onchange = ()=> S.addrIdx = parseInt(sel.value,10);
+  $("rowInfo").textContent = `데이터 ${S.rows.length-1}행 · 머리글 ${header.length}열을 읽었습니다.`;
+}
+
+/* ───────── STEP 3 : 지오코딩 ───────── */
+function geocodeAddress(addr){
+  return new Promise((resolve)=>{
+    S.geocoder.addressSearch(addr,(res,status)=>{
+      if(status===kakao.maps.services.Status.OK && res[0]){
+        resolve({lat:+res[0].y, lng:+res[0].x, ok:true});
+      }else{
+        // 실패 시 키워드(장소) 검색으로 재시도
+        S.places.keywordSearch(addr,(data,st2)=>{
+          if(st2===kakao.maps.services.Status.OK && data[0]){
+            resolve({lat:+data[0].y, lng:+data[0].x, ok:true});
+          }else{
+            resolve({lat:null, lng:null, ok:false});
+          }
+        });
+      }
+    });
+  });
+}
+
+function buildPreviewTable(){
+  const head = $("#preview thead"); const body = $("#preview tbody");
+  head.innerHTML = ""; body.innerHTML = "";
+  const htr = document.createElement("tr");
+  ["#","주소","위도","경도"].forEach(t=>{const th=document.createElement("th");th.textContent=t;htr.appendChild(th);});
+  head.appendChild(htr);
+  const MAX = 200; // 미리보기 상한
+  for(let i=1;i<S.rows.length && i<=MAX;i++){
+    const tr=document.createElement("tr"); tr.dataset.r=i;
+    const addr=S.rows[i][S.addrIdx];
+    tr.innerHTML=`<td>${i}</td><td>${escapeHtml(String(addr))}</td>`
+      +`<td class="pending" data-lat>—</td><td class="pending" data-lng>—</td>`;
+    body.appendChild(tr);
+  }
+  $("previewWrap").classList.remove("hidden");
+}
+function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+function paintRow(i, r){
+  const tr = document.querySelector(`#preview tbody tr[data-r="${i}"]`);
+  if(!tr) return;
+  const lat=tr.querySelector("[data-lat]"), lng=tr.querySelector("[data-lng]");
+  if(r.ok){
+    lat.textContent=r.lat.toFixed(6); lng.textContent=r.lng.toFixed(6);
+    lat.className="coord"; lng.className="coord";
+  }else{
+    lat.textContent="실패"; lng.textContent="—";
+    lat.className="fail"; lng.className="fail";
+  }
+}
+
+async function run(onlyFailed=false){
+  if(!S.ready){ alert("먼저 카카오 키를 연결하세요 (1단계)."); return; }
+  const total = S.rows.length-1;
+  if(!onlyFailed){ S.results = new Array(total).fill(null); buildPreviewTable(); }
+  $("progWrap").classList.remove("hidden");
+  $("run").disabled=true; $("addrCol").disabled=true; $("retry").disabled=true; $("download").disabled=true;
+
+  let done=0, ok=0, no=0;
+  // 전체 진행 카운트는 매번 다시 계산
+  for(let i=1;i<S.rows.length;i++){
+    if(onlyFailed && S.results[i-1] && S.results[i-1].ok) { continue; }
+    const addr = String(S.rows[i][S.addrIdx]||"").trim();
+    let r = {lat:null,lng:null,ok:false};
+    if(addr) r = await geocodeAddress(addr);
+    S.results[i-1]=r;
+    paintRow(i,r);
+    await sleep(70); // 호출 간격 (쿼터/속도 보호)
+  }
+  // 집계
+  S.results.forEach(r=>{ if(r&&r.ok) ok++; else no++; });
+  done = total;
+  $("cDone").textContent = `${done} / ${total}`;
+  $("cOk").textContent = `성공 ${ok}`;
+  $("cNo").textContent = `실패 ${no}`;
+  $("barFill").style.width = "100%";
+
+  $("run").disabled=false; $("addrCol").disabled=false; $("download").disabled=false;
+  $("resultActions").classList.remove("hidden");
+  $("retry").disabled=false;
+  $("retry").classList.toggle("hidden", no===0);
+  const note=$("doneNote");
+  note.classList.remove("hidden");
+  if(no===0){ note.className="note"; note.textContent=`변환 완료 · 전체 ${total}건 모두 좌표를 찾았습니다.`; }
+  else{ note.className="note warn"; note.textContent=`변환 완료 · 성공 ${ok}건, 실패 ${no}건. 실패는 주소 형식을 다듬은 뒤 다시 시도하면 개선될 수 있습니다.`; }
+}
+$("run").onclick = ()=>{ _startRun(false); };
+$("retry").onclick = ()=>{ _startRun(true); };
+
+async function _startRun(onlyFailed){
+  const total=S.rows.length-1;
+  // run() 내부 sleep 사이에 진행바를 갱신하기 위해 감싼다
+  const bar=$("barFill"), cDone=$("cDone");
+  const timer=setInterval(()=>{
+    // 실제 완료 수를 results에서 추정
+    const filled = S.results.filter(r=>r!==null).length;
+    cDone.textContent = `${filled} / ${total}`;
+    bar.style.width = Math.min(100, filled/total*100) + "%";
+  }, 150);
+  await run(onlyFailed);
+  clearInterval(timer);
+}
+
+/* ───────── 결과 내려받기 ───────── */
+$("download").onclick = ()=>{
+  const out = S.rows.map((row,i)=>{
+    const copy = row.slice();
+    if(i===0){ copy.splice(S.addrIdx+1,0,"위도","경도"); }
+    else{
+      const r = S.results[i-1] || {lat:"",lng:""};
+      copy.splice(S.addrIdx+1,0, r.ok? r.lat : "", r.ok? r.lng : "");
+    }
+    return copy;
+  });
+  const ws = XLSX.utils.aoa_to_sheet(out);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "좌표변환");
+  XLSX.writeFile(wb, `${S.fileName}_좌표.xlsx`);
+};
+
+/* ───────── PWA 등록 ───────── */
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
