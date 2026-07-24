@@ -126,6 +126,12 @@
   .foot{text-align:center;color:var(--ink-faint);font-size:11.5px;margin-top:26px}
   .foot code{font-family:var(--mono);background:#fff;border:1px solid var(--line);border-radius:5px;padding:1px 5px}
 
+  /* ── 제공자 선택 세그먼트 ── */
+  .seg{display:inline-flex;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;margin:0 0 14px}
+  .seg button{background:transparent;color:var(--ink-soft);font-size:13px;font-weight:600;padding:7px 18px;border-radius:8px}
+  .seg button.on{background:var(--leaf);color:#fff}
+  .seg button:not(.on):hover{background:var(--line-soft)}
+
   /* ── 사용 가이드 ── */
   .guide-btn{
     position:absolute;top:calc(16px + env(safe-area-inset-top));right:16px;
@@ -182,7 +188,7 @@
   <span class="tick b">EPSG:4326 · WGS84</span>
   <p class="eyebrow">Address → Coordinates</p>
   <h1>주소 좌표 변환기</h1>
-  <p>엑셀의 주소 열을 읽어 오른쪽에 <b>위도·경도</b>를 채워 내려받습니다. 카카오 지도 좌표를 사용합니다.</p>
+  <p>엑셀의 주소 열을 읽어 오른쪽에 <b>위도·경도</b>를 채워 내려받습니다. 카카오 또는 구글 지도 좌표를 사용합니다.</p>
 </header>
 
 <div class="wrap">
@@ -192,17 +198,27 @@
     <summary><span class="mk">?</span>사용 가이드<span class="chev">▾</span></summary>
     <div class="guide-body">
 
-      <h3>처음 한 번만 · 카카오 키 준비</h3>
+      <h3>방법 A · 카카오 (국내 주소 권장)</h3>
       <ol class="glist">
-        <li><a href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com</a>에 로그인하고 <b>내 애플리케이션 › 애플리케이션 추가</b>로 앱을 만듭니다.</li>
-        <li>앱 › <b>요약 정보</b>에서 <b>JavaScript 키</b>를 복사합니다. <b>REST API 키가 아닙니다.</b></li>
-        <li>앱 › <b>플랫폼 › Web › 사이트 도메인 등록</b>에 이 앱의 주소를 <b>경로 없이 오리진만</b> 넣습니다. 예: <code>https://아이디.github.io</code></li>
+        <li><a href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com</a>에 로그인하고 상단 <b>앱</b>에서 <b>애플리케이션 추가하기</b>로 앱을 만듭니다.</li>
+        <li>왼쪽 메뉴 <b>앱 › 플랫폼 키</b>에서 가운데 <b>JavaScript 키</b>를 복사합니다. 네이티브 앱 키·REST API 키·Admin 키가 아닙니다.</li>
+        <li>같은 화면에서 키 이름을 눌러 <b>JavaScript SDK 도메인</b>에 이 앱 주소를 <b>경로 없이 오리진만</b> 등록하고 저장합니다. 예: <code>https://아이디.github.io</code></li>
+        <li>앱 관리 페이지에서 <b>카카오맵 API를 활성화(ON)</b> 합니다. 계정의 첫 앱은 무료 쿼터 범위에서 결제 등록 없이 사용할 수 있습니다.</li>
       </ol>
+
+      <h3>방법 B · 구글 (해외 주소·장소명에 강함)</h3>
+      <ol class="glist">
+        <li><a href="https://console.cloud.google.com/google/maps-apis" target="_blank" rel="noopener">Google Cloud Console</a>에서 프로젝트를 만들고 <b>결제 계정을 연결</b>합니다. 구글은 카드 등록이 있어야 키가 동작합니다.</li>
+        <li><b>API 및 서비스</b>에서 <b>Maps JavaScript API</b>와 <b>Geocoding API</b>를 각각 <b>사용 설정</b>합니다.</li>
+        <li><b>사용자 인증 정보 › 사용자 인증 정보 만들기 › API 키</b>로 키를 발급합니다.</li>
+        <li>발급한 키를 눌러 <b>애플리케이션 제한 › HTTP 리퍼러(웹사이트)</b>를 선택하고 이 앱 주소를 등록합니다. 예: <code>https://아이디.github.io/*</code></li>
+      </ol>
+      <div class="gcallout"><b>비용 주의</b> · 구글은 월 무료 사용량을 넘기면 자동으로 과금됩니다. 대량 변환 전에는 Cloud Console에서 <b>예산 알림</b>이나 <b>일일 할당량 상한</b>을 걸어두세요.</div>
       <div class="gcallout"><b>도메인을 등록하지 않으면</b> 좌표 조회가 실패합니다. 파일을 그냥 더블클릭(<code>file://</code>)해서 열어도 동작하지 않으니, 배포된 주소로 접속해 사용하세요.</div>
 
       <h3>변환하기</h3>
       <ol class="glist">
-        <li><b>1단계</b>에 JavaScript 키를 붙여넣고 <b>저장하고 연결</b>을 누릅니다. 키는 이 기기에 저장돼 다음부터 자동 연결됩니다.</li>
+        <li><b>1단계</b>에서 <b>카카오 / 구글</b> 중 하나를 고르고 키를 붙여넣은 뒤 <b>저장하고 연결</b>을 누릅니다. 키는 제공자별로 이 기기에 저장돼 다음부터 자동 연결됩니다.</li>
         <li><b>2단계</b>에 엑셀 파일을 끌어다 놓거나 눌러서 선택합니다. 첫 시트의 1행을 머리글로 읽습니다.</li>
         <li><b>3단계</b>에서 주소가 든 열을 확인하고(‘주소’ 열은 자동 선택) <b>변환 시작</b>을 누릅니다.</li>
         <li>진행이 끝나면 <b>결과 엑셀 내려받기</b>로 저장합니다. 주소 열 오른쪽에 <b>위도·경도</b>가 추가됩니다.</li>
@@ -211,7 +227,8 @@
       <h3>알아두면 좋은 점</h3>
       <ul class="gtips">
         <li>모든 처리는 브라우저 안에서만 이뤄집니다. 파일이 서버로 올라가지 않습니다.</li>
-        <li>도로명·지번 검색이 실패하면 장소명(키워드) 검색으로 한 번 더 시도합니다.</li>
+        <li>국내 지번·도로명 주소는 대체로 <b>카카오</b>가, 해외 주소나 건물·상호명은 <b>구글</b>이 잘 찾습니다. 한쪽에서 실패가 많으면 제공자를 바꿔 재시도해 보세요.</li>
+        <li>카카오는 주소 검색이 실패하면 장소명(키워드) 검색으로 한 번 더 시도합니다.</li>
         <li>실패한 행은 <b>실패 항목 다시 변환</b>으로 재시도할 수 있습니다. 주소를 도로명 형식으로 다듬으면 성공률이 올라갑니다.</li>
         <li>좌표계는 <code>WGS84</code>(위경도)입니다.</li>
         <li>모바일 브라우저의 <b>홈 화면에 추가</b>를 누르면 앱처럼 설치돼 실행됩니다.</li>
@@ -221,16 +238,27 @@
 
   <!-- STEP 1 : API 키 -->
   <section class="panel" id="p1">
-    <div class="panel-head"><span class="step">1</span><h2>카카오 JavaScript 키 등록</h2></div>
-    <p class="sub">지도 좌표를 조회하려면 카카오 개발자 앱의 <b>JavaScript 키</b>가 필요합니다.</p>
-    <label class="fld" for="apikey">JavaScript 키</label>
+    <div class="panel-head"><span class="step">1</span><h2>지오코딩 제공자 · 키 등록</h2></div>
+    <p class="sub">카카오와 구글 중 사용할 서비스를 고르고 해당 키를 등록합니다.</p>
+
+    <div class="seg" id="seg">
+      <button type="button" class="on" data-p="kakao">카카오</button>
+      <button type="button" data-p="google">구글</button>
+    </div>
+
+    <label class="fld" for="apikey" id="keyLabel">JavaScript 키</label>
     <div class="row">
-      <input type="password" id="apikey" placeholder="여기에 JavaScript 키를 붙여넣기" autocomplete="off" style="flex:3 1 220px" />
+      <input type="password" id="apikey" placeholder="여기에 키를 붙여넣기" autocomplete="off" style="flex:3 1 220px" />
       <button class="btn sm" id="saveKey" style="flex:0 0 auto">저장하고 연결</button>
     </div>
-    <p class="hint">
+
+    <p class="hint" id="hintKakao">
       <a href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com</a>
-      에서 앱 생성 → <b>JavaScript 키</b> 복사 → 앱 설정의 <b>플랫폼 &gt; Web</b>에 이 앱을 올린 <b>도메인 주소를 등록</b>해야 동작합니다.
+      에서 앱 생성 → <b>앱 › 플랫폼 키</b>의 가운데 <b>JavaScript 키</b> 복사 → 같은 화면 <b>JavaScript SDK 도메인</b>에 이 앱의 도메인 등록 → 앱 관리에서 <b>카카오맵 API 활성화(ON)</b>까지 해야 동작합니다.
+    </p>
+    <p class="hint hidden" id="hintGoogle">
+      <a href="https://console.cloud.google.com/google/maps-apis" target="_blank" rel="noopener">Google Cloud Console</a>
+      에서 프로젝트 생성 → <b>Maps JavaScript API</b>와 <b>Geocoding API</b> 사용 설정 → <b>사용자 인증 정보</b>에서 API 키 발급 → 키 제한을 <b>HTTP 리퍼러(웹사이트)</b>로 두고 이 앱 도메인 등록. <b>결제 계정 연결(카드 등록)이 필요</b>합니다.
     </p>
     <p id="keyState" class="note hidden"></p>
   </section>
@@ -286,7 +314,8 @@
 <script>
 /* ───────── 상태 ───────── */
 const S = {
-  ready:false,          // 카카오 SDK 로드 완료
+  provider:"kakao",     // "kakao" | "google"
+  ready:false,          // SDK 로드 완료
   geocoder:null, places:null,
   rows:[],              // aoa (header + data)
   addrIdx:0,
@@ -298,10 +327,10 @@ const S = {
 const $ = (id)=>document.getElementById(id);
 const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 
-/* ───────── STEP 1 : 카카오 SDK 로드 ───────── */
+/* ───────── STEP 1 : 제공자별 SDK 로드 ───────── */
 function loadKakao(key){
   return new Promise((resolve,reject)=>{
-    if(window.kakao && window.kakao.maps){ resolve(); return; }
+    if(window.kakao && window.kakao.maps && window.kakao.maps.services){ resolve(); return; }
     const s = document.createElement("script");
     s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&libraries=services&autoload=false`;
     s.onload = ()=> window.kakao.maps.load(resolve);
@@ -309,39 +338,80 @@ function loadKakao(key){
     document.head.appendChild(s);
   });
 }
+function loadGoogle(key){
+  return new Promise((resolve,reject)=>{
+    if(window.google && window.google.maps && window.google.maps.Geocoder){ resolve(); return; }
+    window.__gmapsReady = ()=> resolve();
+    const s = document.createElement("script");
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}`
+          + `&language=ko&region=KR&callback=__gmapsReady`;
+    s.onerror = ()=> reject(new Error("SDK 로드 실패"));
+    // 키가 잘못되면 콜백이 오지 않으므로 타임아웃
+    setTimeout(()=>{ if(!(window.google&&window.google.maps)) reject(new Error("응답 없음")); }, 8000);
+    document.head.appendChild(s);
+  });
+}
+
 async function connectKey(key){
   const state = $("keyState");
+  state.classList.remove("hidden");
+  state.className = "note"; state.textContent = "연결 중…";
   try{
-    await loadKakao(key);
-    S.geocoder = new kakao.maps.services.Geocoder();
-    S.places   = new kakao.maps.services.Places();
+    if(S.provider === "kakao"){
+      await loadKakao(key);
+      S.geocoder = new kakao.maps.services.Geocoder();
+      S.places   = new kakao.maps.services.Places();
+    }else{
+      await loadGoogle(key);
+      S.geocoder = new google.maps.Geocoder();
+      S.places   = null;
+    }
     S.ready = true;
-    localStorage.setItem("kakao_js_key", key);
+    localStorage.setItem(S.provider === "kakao" ? "kakao_js_key" : "google_api_key", key);
+    localStorage.setItem("provider", S.provider);
     $("p1").dataset.done = "1";
-    state.textContent = "연결됨 · 이제 파일을 올려 변환할 수 있습니다.";
+    state.textContent = (S.provider==="kakao"?"카카오":"구글") + " 연결됨 · 이제 파일을 올려 변환할 수 있습니다.";
     state.className = "note";
   }catch(e){
     S.ready = false;
-    state.textContent = "키를 불러오지 못했습니다. 키 값과 등록 도메인을 확인하세요.";
+    state.textContent = S.provider === "kakao"
+      ? "키를 불러오지 못했습니다. JavaScript 키 값, 등록 도메인, 카카오맵 API 활성화 여부를 확인하세요."
+      : "키를 불러오지 못했습니다. API 키, HTTP 리퍼러 제한, Maps JavaScript API 사용 설정, 결제 계정 연결을 확인하세요.";
     state.className = "note warn";
   }
 }
+
+/* 제공자 전환 */
+function setProvider(p){
+  S.provider = p;
+  S.ready = false; S.geocoder = null; S.places = null;
+  delete $("p1").dataset.done;
+  document.querySelectorAll("#seg button").forEach(b=>b.classList.toggle("on", b.dataset.p===p));
+  $("keyLabel").textContent = p==="kakao" ? "JavaScript 키" : "API 키";
+  $("hintKakao").classList.toggle("hidden", p!=="kakao");
+  $("hintGoogle").classList.toggle("hidden", p==="kakao");
+  $("keyState").classList.add("hidden");
+  const saved = localStorage.getItem(p==="kakao" ? "kakao_js_key" : "google_api_key") || "";
+  $("apikey").value = saved;
+  if(saved) connectKey(saved);
+}
+document.querySelectorAll("#seg button").forEach(b=>{
+  b.onclick = ()=>{ if(S.provider!==b.dataset.p) setProvider(b.dataset.p); };
+});
+
 $("saveKey").onclick = ()=>{
   const k = $("apikey").value.trim();
   if(!k){ return; }
   connectKey(k);
 };
-// 저장된 키 자동 연결
-(function(){
-  const saved = localStorage.getItem("kakao_js_key");
-  if(saved){ $("apikey").value = saved; connectKey(saved); }
-})();
+// 마지막으로 쓰던 제공자/키로 자동 연결
+setProvider(localStorage.getItem("provider") || "kakao");
 
 /* ───────── 사용 가이드 토글 ───────── */
 (function(){
   const g = $("guide");
   // 처음 방문(키 미설정)엔 펼쳐서 안내
-  if(!localStorage.getItem("kakao_js_key")) g.open = true;
+  if(!localStorage.getItem("kakao_js_key") && !localStorage.getItem("google_api_key")) g.open = true;
   $("guideBtn").onclick = ()=>{
     g.open = !g.open;
     if(g.open) g.scrollIntoView({behavior:"smooth", block:"start"});
@@ -397,6 +467,10 @@ function setupColumns(){
 
 /* ───────── STEP 3 : 지오코딩 ───────── */
 function geocodeAddress(addr){
+  return S.provider === "kakao" ? geocodeKakao(addr) : geocodeGoogle(addr);
+}
+
+function geocodeKakao(addr){
   return new Promise((resolve)=>{
     S.geocoder.addressSearch(addr,(res,status)=>{
       if(status===kakao.maps.services.Status.OK && res[0]){
@@ -415,8 +489,26 @@ function geocodeAddress(addr){
   });
 }
 
+// 구글: 속도 제한(OVER_QUERY_LIMIT) 시 지수 백오프로 최대 3회 재시도
+function geocodeGoogle(addr, attempt=0){
+  return new Promise((resolve)=>{
+    S.geocoder.geocode({address:addr, region:"KR"}, async (res,status)=>{
+      if(status==="OK" && res[0]){
+        const loc = res[0].geometry.location;
+        resolve({lat:loc.lat(), lng:loc.lng(), ok:true});
+      }else if(status==="OVER_QUERY_LIMIT" && attempt<3){
+        await sleep(600 * Math.pow(2,attempt));
+        resolve(await geocodeGoogle(addr, attempt+1));
+      }else{
+        resolve({lat:null, lng:null, ok:false});
+      }
+    });
+  });
+}
+
 function buildPreviewTable(){
-  const head = $("#preview thead"); const body = $("#preview tbody");
+  const head = document.querySelector("#preview thead");
+  const body = document.querySelector("#preview tbody");
   head.innerHTML = ""; body.innerHTML = "";
   const htr = document.createElement("tr");
   ["#","주소","위도","경도"].forEach(t=>{const th=document.createElement("th");th.textContent=t;htr.appendChild(th);});
@@ -447,7 +539,7 @@ function paintRow(i, r){
 }
 
 async function run(onlyFailed=false){
-  if(!S.ready){ alert("먼저 카카오 키를 연결하세요 (1단계)."); return; }
+  if(!S.ready){ alert("먼저 1단계에서 키를 연결하세요."); return; }
   const total = S.rows.length-1;
   if(!onlyFailed){ S.results = new Array(total).fill(null); buildPreviewTable(); }
   $("progWrap").classList.remove("hidden");
